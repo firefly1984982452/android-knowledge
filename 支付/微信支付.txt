@@ -1,0 +1,35 @@
+
+相关网站：
+
+官网：		 https://open.weixin.qq.com/cgi-bin/showdocument?action=dir_list&t=resource/res_list&verify=1&id=open1419317784&token=&lang=zh_CN
+商户平台：	 https://pay.weixin.qq.com/wiki/doc/api/app/app.php?chapter=9_1
+签名工具下载：	 https://open.weixin.qq.com/cgi-bin/showdocument?action=dir_list&t=resource/res_list&verify=1&id=open1419319167&token=&lang=zh_CN
+支付SDK示例下载：https://pay.weixin.qq.com/wiki/doc/api/app/app.php?chapter=11_1	
+
+环境搭建：https://open.weixin.qq.com/cgi-bin/showdocument?action=dir_list&t=resource/res_list&verify=1&id=1417751808&token=&lang=zh_CN
+
+
+我的账号：3182105295@qq.com  密码：*********
+
+
+签名获取：
+	1.将自己的apk签名打包，运行到手机上。
+	2.将微信支付的签名工具，运行到手机上。
+	3.通过签名工具，获取签名。【3c91362d2784518e9b113657938f8900】
+
+
+远程地址：http://139.196.196.64:8080/PayServer/mypay.jsp
+=====================================================================================
+注意：
+1.写一个receiver。广播。
+ <receiver android:name=".AppRegister">
+      <intent-filter>
+           <action android:name="com.tencent.mm.plugin.openapi.Intent.ACTION_REFRESH_WXAPP" />
+      </intent-filter>
+ </receiver>
+
+AppRegister 拷贝到 style.app.fish
+
+2.写一个回调的界面Activity。
+  1>包名必须是 <style.app.fish>.wxapi 
+  2>Activity的名字必须是WXPayEntryActivity

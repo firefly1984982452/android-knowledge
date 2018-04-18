@@ -1,0 +1,54 @@
+后台登录：http://139.196.196.64:8080/edsm/manage/login
+
+1、用户登录的流程。
+输入用户名、密码 
+   ----->做基本的验证(非空、正则表达式)
+   ----->将用户名密码发送给服务器(服务器验证)
+   ----->结果(json数据【json的解析】)
+     |-->验证成功：将服务器返回的用户信息保存到本手机。然后页面跳转到首页。
+     |-->验证失败：提示用户名或者密码错误！(网络错误！)
+
+
+2、进入首页，第一步获取用户信息。
+	|-->没有，跳回到登录界面。
+	|-->有，展示数据。
+
+
+
+APP结构搭建：
+1、分包：
+com.style.diaocha   放Activity界面
+com.style.adapter   放适配器
+com.style.common    放一些配置信息
+com.style.model     放实体类
+com.style.service   放服务(网络服务、本地数据库服务)
+com.style.util	    放工具包
+com.style.view      放我们视图(自定义的控件、碎片、第三方控件)
+
+
+2、配置信息
+com.style.common包
+	Constants类：整个app的相关的配置信息。
+		|-请求服务器的IP地址
+		|-请求服务器的APPkey
+		|-当前该用户的信息
+
+com.style.model包
+	User类：|-相关的信息，根据接口来定义。(定义类型[字符串、数字])
+
+
+
+com.style.service包
+	|-网络请求：1.加权限。<uses-permission android:name="android.permission.INTERNET"/>
+		    2.导入工具包。android-async-http-1.4.8.jar导入到libs下面。
+
+	HttpService类（单例模式）：
+		|-封装了一个login(String username,String password,ResponseHandlerInterface responseHandler)
+
+com.style.diaocha包
+	LoginActivity：写上登录的业务逻辑：大家前期的作业。
+	   |-HttpService httpService;
+	   |-创建一个HttpService:   httpService = HttpService.getInstance();
+
+	在网络数据提交之前：pd = ProgressDialog.show(this, null, "正在登录，请稍候…"); 【出于用户体验】
+	当网络请求返回的时候【成功或者失败】：将pd关闭。pd.dismiss();
