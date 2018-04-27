@@ -1,0 +1,258 @@
+﻿微信支付总结
+1.前期注册操作
+	1-1：微信开发平台：https://open.weixin.qq.com/
+	1-2：创建移动应用
+		签名获取：
+		1.将自己的apk签名打包，运行到手机上。
+		2.将微信支付的签名工具，运行到手机上。
+		3.通过签名工具，获取签名。
+
+2.android端初始化
+	2-1：签名配置
+	    signingConfigs {
+	        debug{
+	            storeFile file("f:/style.keystore")
+	            storePassword "13873129725"
+	            keyAlias "style"
+	            keyPassword "13873129725"
+	        }
+	        release {
+	            storeFile file("f:/style.keystore")
+	            storePassword "13873129725"
+	            keyAlias "style"
+	            keyPassword "13873129725"
+	        }
+	    }
+	2-2：权限
+	    <uses-permission android:name="android.permission.INTERNET" />
+	    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+	    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+	2-3：支付按钮
+	    <Button
+	        android:id="@+id/appay_btn"
+	        android:background="@drawable/btn_style_one"
+	        android:layout_width="match_parent"
+	        android:layout_height="wrap_content"
+	        android:textColor="#fff"
+	        android:textSize="20sp"
+	        android:text="开始支付" />
+	    按钮点击样式：
+		    <selector xmlns:android="http://schemas.android.com/apk/res/android">
+			    <item android:state_pressed="true" android:drawable="@drawable/btn_style_one_pressed" />
+			    <item  android:drawable="@drawable/btn_style_one_normal" />
+			</selector>
+	2-4：导入jar包
+	2-5：调用微信支付的代码
+	    Button appayBtn;
+    	private IWXAPI api;
+    	api = WXAPIFactory.createWXAPI(this, Constant.OPEN_ID);
+        appayBtn = (Button) findViewById(R.id.appay_btn);
+        appayBtn.setOnClickListener(new View.OnClickListener() {
+
+            @Override
+            public void onClick(View v) {
+//                String url = "http://139.196.196.64:8080/PayServer/mypay.jsp";
+                String name = null;
+                try {
+                    name = URLEncoder.encode("你好","utf-8");
+                } catch (UnsupportedEncodingException e) {
+                    e.printStackTrace();
+                }
+                String url = "http://172.16.46.114:8080/Pay/pay.jsp?goodsName="+name+"&price=11";
+                Toast.makeText(MainActivity.this, "获取订单中...", Toast.LENGTH_SHORT).show();
+                HttpUtil.get(url, new HttpUtil.CallBack() {
+                    @Override
+                    public void onSuccess(String content) {
+                        try {
+                            Log.e("get server pay params:", content);
+                            if (content != null) {
+                                JSONObject json = new JSONObject(content);
+                                if (null != json && !json.has("retcode")) {
+                                    PayReq req = new PayReq();
+                                    req.appId = json.getString("appid");
+                                    req.partnerId = json.getString("partnerid");
+                                    req.prepayId = json.getString("prepayid");
+                                    req.nonceStr = json.getString("noncestr");
+                                    req.timeStamp = json.getString("timestamp");
+                                    req.packageValue = json.getString("package");
+                                    req.sign = json.getString("sign");
+                                    req.extData = "app data"; // optional
+                                    Toast.makeText(MainActivity.this, "正常调起支付", Toast.LENGTH_SHORT).show();
+                                    api.sendReq(req);
+                                } else {
+                                    Log.d("PAY_GET", "返回错误" + json.getString("retmsg"));
+                                    Toast.makeText(MainActivity.this, "返回错误" + json.getString("retmsg"), Toast.LENGTH_SHORT).show();
+                                }
+                            } else {
+                                Log.d("PAY_GET", "服务器请求错误");
+                                Toast.makeText(MainActivity.this, "服务器请求错误", Toast.LENGTH_SHORT).show();
+                            }
+                        } catch (Exception e) {
+                            Log.e("PAY_GET", "异常：" + e.getMessage());
+                            Toast.makeText(MainActivity.this, "异常：" + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        }
+                        appayBtn.setEnabled(true);
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+                        Toast.makeText(MainActivity.this, "网络连接失败", Toast.LENGTH_SHORT).show();
+                        appayBtn.setEnabled(true);
+                    }
+                });
+            }
+        });
+
+
+3.微信支付服务器搭建
+	3-1:jsp页面
+		<%
+			//得到输入的商品名称和价格
+			String goodsName = request.getParameter("goodsName");
+			String price = request.getParameter("price");
+
+			if (goodsName == null || goodsName.trim().equals("")) {
+				out.print("商品名不能为空");
+			}
+			if (price == null || price.trim().equals("")) {
+				out.print("商品价格不能为空");
+			}
+			int goodsPrice = Integer.parseInt(price);
+
+			//把相关参数传给微信支付
+			TreeMap<String, Object> map = new TreeMap<String, Object>();
+			map.put("appid", Constant.OPEN_ID);
+			map.put("mch_id", Constant.SW_ID);
+			map.put("nonce_str", Utils.getRandomStr());
+			map.put("body", goodsName);
+			map.put("out_trade_no", Utils.getRandomStr());
+			map.put("total_fee", goodsPrice);
+			map.put("spbill_create_ip", request.getLocalAddr());
+			map.put("notify_url",
+					"http://139.196.196.64:8080/PayServer/mypay.jsp");
+			map.put("trade_type", "APP");
+			map.put("sign", Utils.getSignStr(map));
+			
+			//把map转换成xml，并发送到微信支付接口
+			String info = Utils.map2xml(map);
+			String i = getHttpData.sendMsg(Constant.ORDER, info);
+
+			//接收它的返回信息
+			Map<String, Object> returnMap = Utils.xml2Map(i);
+			//返回的键要相对应，所以要改过来
+			TreeMap<String, Object> resultmap = new TreeMap<String, Object>();
+			resultmap.put("appid", Constant.OPEN_ID);
+			resultmap.put("partnerid", Constant.SW_ID);
+			resultmap.put("prepayid",returnMap.get("prepay_id"));
+			resultmap.put("noncestr",returnMap.get("nonce_str"));
+			resultmap.put("timestamp",Utils.getDataStr("yyyyMMddHH"));
+			resultmap.put("package","WXPay");
+			resultmap.put("sign",Utils.getSignStr(resultmap));
+
+			String inf = JSON.toJSONString(resultmap);
+			out.print(inf);
+		%>
+	3-2：常用方法 Utils.java
+		package com.firefly.common;
+
+		import java.io.ByteArrayInputStream;
+		import java.text.SimpleDateFormat;
+		import java.util.Date;
+		import java.util.HashMap;
+		import java.util.Map;
+		import java.util.Random;
+		import java.util.Set;
+		import java.util.TreeMap;
+
+		import javax.xml.parsers.DocumentBuilder;
+		import javax.xml.parsers.DocumentBuilderFactory;
+
+		import org.w3c.dom.Document;
+		import org.w3c.dom.Element;
+		import org.w3c.dom.Node;
+		import org.w3c.dom.NodeList;
+
+		public class Utils {
+
+			// 得到32位随机数
+			public static String getRandomStr() {
+				StringBuffer sb = new StringBuffer();
+				Random r = new Random();
+				String str = "QWERTYUIOPASDFGHJKLZXCVBNM0123456789";
+				for (int i = 0; i < 32; i++) {
+					sb.append(str.charAt(r.nextInt(str.length())));
+				}
+				return sb.toString();
+			}
+
+			// 得到sign
+			public static String getSignStr(TreeMap<String, Object> map) {
+				String info = "";
+				Set<String> keySet = map.keySet();
+				for (String string : keySet) {
+					info += string + "=" + map.get(string) + "&";
+				}
+				info += "key=" + Constant.API_KEY;
+				return MD5.MD5Encode(info).toUpperCase();
+			}
+
+			// 得到日期
+			public static String getDataStr(String type) {
+				Date date = new Date();
+				SimpleDateFormat format = new SimpleDateFormat(type);
+				return format.format(date);
+			}
+
+			// 转换为xml
+			public static String map2xml(TreeMap<String, Object> map) {
+				String info = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>";
+				info += "<xml>";
+				Set<String> keySet = map.keySet();
+				for (String string : keySet) {
+					info += "<" + string + ">" + map.get(string) + "</" + string + ">";
+				}
+				info += "</xml>";
+				return info;
+			}
+
+			public static Map<String, Object> xml2Map(String xmlStr) {
+				Map<String, Object> map = null;
+				try {
+					DocumentBuilderFactory factory = DocumentBuilderFactory
+							.newInstance();
+					DocumentBuilder builder = factory.newDocumentBuilder();
+					// 将字符串转换成流
+					ByteArrayInputStream bis = new ByteArrayInputStream(xmlStr
+							.getBytes());
+					Document doc = builder.parse(bis);
+					Node root = doc.getFirstChild();// 根节点
+					NodeList nodeList = root.getChildNodes();
+					map = new HashMap<String, Object>();
+
+					for (int i = 0; i < nodeList.getLength(); i++) {
+						Node child = nodeList.item(i);
+						if (child instanceof Element) {
+							Element e = (Element) child;
+							map.put(e.getNodeName(), e.getTextContent());
+						}
+					}
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+				return map;
+			}
+
+			// 测试
+			public static void main(String[] args) {
+
+				// System.out.println("随机："+Utils.getRandomStr());
+				TreeMap<String, Object> ma = new TreeMap<String, Object>();
+				ma.put("appid", "wefoi");
+				ma.put("eei", "20934jf");
+				System.out.println(Utils.map2xml(ma));
+				// System.out.println(getDataStr("yyyyMMddHH"));
+
+			}
+		}
+
+4.android端实现
